@@ -547,12 +547,23 @@ namespace WinFormsApp1
             // Actualizar UI según el tipo de evento
             switch (evento.Tipo)
             {
-                case nameof(TipoEvento.COMBATE):
+               case nameof(TipoEvento.COMBATE):
                     if (evento.Datos is ResultadoCombate combate)
                     {
-                        _ui.ShowDiceResult(combate.DadosAtacante, combate.DadosDefensor);
+                        // Mostrar animación de dados primero
+                        _ui.ShowDiceRolling();
+
+                        // Esperar 1 segundo y luego mostrar resultado final
+                        Task.Delay(1000).ContinueWith(_ =>
+                        {
+                            _ui.Invoke(new Action(() =>
+                            {
+                                _ui.ShowDiceResult(combate.DadosAtacante, combate.DadosDefensor);
+                            }));
+                        });
                     }
                     break;
+
 
                 case nameof(TipoEvento.TURNO_CAMBIADO):
                     ActualizarUI();

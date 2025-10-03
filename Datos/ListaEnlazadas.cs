@@ -1,8 +1,10 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 
 namespace CrazyRisk.Datos
 {
-    public class MyLinkedList<T>
+    public class MyLinkedList<T> : IEnumerable<T>
     {
         private Node<T>? head;
         private Node<T>? tail;
@@ -71,6 +73,23 @@ namespace CrazyRisk.Datos
                 action(cur.Value);
                 cur = cur.Next;
             }
+        }
+
+        // ✅ Implementación de IEnumerable<T>
+        public IEnumerator<T> GetEnumerator()
+        {
+            var cur = head;
+            while (cur != null)
+            {
+                yield return cur.Value;
+                cur = cur.Next;
+            }
+        }
+
+        // ✅ Implementación de IEnumerable (no genérico)
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
     }
 }

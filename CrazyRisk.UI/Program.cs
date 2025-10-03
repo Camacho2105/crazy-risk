@@ -83,6 +83,7 @@ namespace WinFormsApp1
                     partida.AddJugador(jugador2);
                     partida.AddJugador(neutral);
                     partida.PrepararPartida();
+                    partida.ColocarRefuerzosNeutral();
 
                     var controller = new GameController(game, partida, true, alias);
                     controller.IniciarRed(puerto: port);

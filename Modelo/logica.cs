@@ -555,16 +555,47 @@ namespace CrazyRisk.Modelo
                 j.AddTropasDisponibles(40 - usados); // quedan disponibles para colocación
             }
         }
+        public void ColocarRefuerzosNeutral()
+        {
+            var neutral = jugadores.FirstOrDefault(j => j is EjercitoNeutral);
+            if (neutral == null || neutral.TropasDisponibles <= 0) return;
+
+            var rnd = new Random();
+            var territoriosNeutral = neutral.GetTerritorios();
+            int tropasRestantes = neutral.TropasDisponibles;
+
+            while (tropasRestantes > 0 && territoriosNeutral.Length > 0)
+            {
+                var territorio = territoriosNeutral[rnd.Next(territoriosNeutral.Length)];
+                territorio.AddTropas(1);
+                tropasRestantes--;
+            }
+
+            // Resetear tropas disponibles a 0
+            neutral.RemoveTropasDisponibles(neutral.TropasDisponibles);
+
+            DispararEvento(TipoEvento.REFUERZOS_CALCULADOS.ToString(),
+                $"{neutral.Alias} colocó todas sus tropas iniciales",
+                new { Jugador = neutral.Alias });
+        }
+
 
         // ====== TURNOS ======
         public Jugador GetJugadorActual() => jugadores.ToArray()[turnoActual];
         
         public void AvanzarTurno()
         {
-            turnoActual = (turnoActual + 1) % jugadores.Count;
-            Jugador actual = GetJugadorActual();
+            if (jugadores.Count == 0) return;
 
-            // Validar intercambio forzoso antes de continuar
+            var arr = jugadores.ToArray();
+            do
+            {
+                turnoActual = (turnoActual + 1) % arr.Length;
+            }
+            while (arr[turnoActual] is EjercitoNeutral);
+
+            Jugador actual = arr[turnoActual];
+
             if (RequiereIntercambioForzoso(actual))
             {
                 DispararEvento(TipoEvento.ERROR.ToString(),
@@ -576,23 +607,16 @@ namespace CrazyRisk.Modelo
             DispararEvento(TipoEvento.TURNO_CAMBIADO.ToString(),
                 $"Turno de {actual.Alias}", actual);
 
-            if (!(actual is EjercitoNeutral))
-            {
-                int refuerzos = CalcularRefuerzos(actual);
-                actual.AddTropasDisponibles(refuerzos);
-
-                // El GameController decide en OnEndTurnRequested si este jugador arranca en Refuerzos o Ataques.
-                
-                DispararEvento(TipoEvento.REFUERZOS_CALCULADOS.ToString(),
-                    $"{actual.Alias} recibe {refuerzos} refuerzos",
-                    new { Jugador = actual.Alias, Refuerzos = refuerzos });
-            }
-
+            // ❌ Quita la parte que daba refuerzos aquí
+            // ✅ En su lugar, marca el estado en Refuerzos
+            CambiarEstado(EstadoJuego.Refuerzos);
             if (actual is JugadorIA ia)
             {
                 ia.JugarTurno();
             }
+            // Los refuerzos se calculan y agregan SOLO cuando la UI/jugador entra en fase de Refuerzos
         }
+
 
 
         public void EjecutarFasesTurno()

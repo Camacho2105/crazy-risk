@@ -202,11 +202,52 @@ namespace CrazyRisk.Comunicacion
                 }
                 else if (comando.StartsWith("ENDTURN"))
                 {
-                    partida.AvanzarTurno();
-                    var nuevoJugador = partida.GetJugadorActual();
+                    // === MÁQUINA DE ESTADOS SINCRONIZADA CON GameController ===
+                    var actual = partida.GetJugadorActual();
+                    bool esCliente = string.Equals(actual.Alias, "Cliente", StringComparison.OrdinalIgnoreCase);
 
-                    // Difundir cambio de turno
-                    Difundir($"CAMBIO_TURNO:{nuevoJugador.Alias},{nuevoJugador.TropasDisponibles}");
+                    switch (partida.Estado)
+                    {
+                        case EstadoJuego.Refuerzos:
+                            if (!esCliente)
+                            {
+                                // Servidor en Refuerzos -> pasa turno al Cliente en Refuerzos
+                                partida.AvanzarTurno();
+                                partida.CambiarEstado(EstadoJuego.Refuerzos);
+                            }
+                            else
+                            {
+                                // Cliente en Refuerzos -> vuelve Servidor en Ataques
+                                partida.AvanzarTurno();
+                                partida.CambiarEstado(EstadoJuego.Ataques);
+                            }
+                            break;
+
+                        case EstadoJuego.Ataques:
+                            // Ataques -> Planeación (mismo jugador)
+                            partida.CambiarEstado(EstadoJuego.Planeacion);
+                            break;
+
+                        case EstadoJuego.Planeacion:
+                            if (!esCliente)
+                            {
+                                // Servidor termina Planeación -> pasa Cliente en Ataques
+                                partida.AvanzarTurno();
+                                partida.CambiarEstado(EstadoJuego.Ataques);
+                            }
+                            else
+                            {
+                                // Cliente termina Planeación -> vuelve Servidor en Refuerzos
+                                partida.AvanzarTurno();
+                                partida.CambiarEstado(EstadoJuego.Refuerzos);
+                            }
+                            break;
+                    }
+
+                    // Difundir nuevo turno y fase (para mantener clientes alineados)
+                    var nuevo = partida.GetJugadorActual();
+                    Difundir($"CAMBIO_TURNO:{nuevo.Alias},{nuevo.TropasDisponibles}");
+                    Difundir($"FASE_ACTUAL:{partida.Estado}");
                 }
                 else if (comando.StartsWith("FORTIFY:"))
                 {
