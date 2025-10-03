@@ -75,9 +75,9 @@ namespace WinFormsApp1
                     var mapa = CreadorMapa.CrearMapaMundial();
                     var partida = new Partida(mapa);
 
-                    var jugador1 = new Jugador(alias, "#EA5545", 40);
-                    var jugador2 = new Jugador("Cliente", "#3488F5", 40);
-                    var neutral = new EjercitoNeutral("Neutral", "#A0A0A0", 40);
+                    var jugador1 = new Jugador(alias, "#EA5545", 0);
+                    var jugador2 = new Jugador("Cliente", "#3488F5", 0);
+                    var neutral = new EjercitoNeutral("Neutral", "#A0A0A0", 0);
 
                     partida.AddJugador(jugador1);
                     partida.AddJugador(jugador2);

@@ -34,11 +34,29 @@ namespace WinFormsApp1
                 _partida.OnEventoJuego += OnEventoLogica;
                 Console.WriteLine("✅ Suscrito a eventos de partida");
             }
-            
+
             ConectarEventosUI();
             ConectarEventosLogica();
             // 🆕 Forzar primera actualización
             ForzarActualizacionUI();
+            try
+            {
+                // Si ya hay jugadores en la partida, identificar el jugador local por alias
+                var arr = _partida?.Jugadores?.ToArray();
+                if (arr != null && arr.Length > 0)
+                {
+                    _jugadorLocal = arr.FirstOrDefault(j => string.Equals(j.Alias, _aliasLocal, StringComparison.OrdinalIgnoreCase));
+                    if (_jugadorLocal == null)
+                    {
+                        // fallback: toma el que NO sea "Cliente" ni "Neutral"
+                        _jugadorLocal = arr.FirstOrDefault(j => !string.Equals(j.Alias, "Cliente", StringComparison.OrdinalIgnoreCase)
+                                                            && !string.Equals(j.Alias, "Neutral", StringComparison.OrdinalIgnoreCase));
+                    }
+                    Console.WriteLine($"🆔 Jugador local detectado en controller: {_jugadorLocal?.Alias ?? "NULL"}");
+                }
+            }
+            catch { /* ignore */ }
+
         }
         public void SolicitarEstadoInicial()
         {
@@ -355,14 +373,51 @@ namespace WinFormsApp1
                 if (_esServidor)
                 {
                     var actual = _partida.GetJugadorActual();
-                    
+
                     if (_partida.RequiereIntercambioForzoso(actual))
                     {
                         MostrarError($"{actual.Alias} debe intercambiar cartas antes de terminar el turno.");
                         return;
                     }
 
-                    _partida.AvanzarTurno();
+                    switch (_partida.Estado)
+                    {
+                        case EstadoJuego.Refuerzos:
+                            if (actual == _jugadorLocal) 
+                            {
+                                // 🔹 Servidor en Refuerzos → ahora pasa turno al Cliente en Refuerzos
+                                _partida.AvanzarTurno();
+                                _partida.CambiarEstado(EstadoJuego.Refuerzos);
+                            }
+                            else 
+                            {
+                                // 🔹 Cliente en Refuerzos → vuelve al Servidor en Ataques
+                                _partida.AvanzarTurno();
+                                _partida.CambiarEstado(EstadoJuego.Ataques);
+                            }
+                            break;
+
+                        case EstadoJuego.Ataques:
+                            // 🔹 Ataques → Planeación (mismo jugador)
+                            _partida.CambiarEstado(EstadoJuego.Planeacion);
+                            break;
+
+                        case EstadoJuego.Planeacion:
+                            if (actual == _jugadorLocal) 
+                            {
+                                // 🔹 Servidor terminó Planeación → pasa al Cliente en Ataques
+                                _partida.AvanzarTurno();
+                                _partida.CambiarEstado(EstadoJuego.Ataques);
+                            }
+                            else 
+                            {
+                                // 🔹 Cliente terminó Planeación → vuelve al Servidor en Refuerzos
+                                _partida.AvanzarTurno();
+                                _partida.CambiarEstado(EstadoJuego.Refuerzos);
+                            }
+                            break;
+                    }
+
                     ActualizarUI();
                 }
                 else
@@ -376,6 +431,8 @@ namespace WinFormsApp1
                 MostrarError($"Error al avanzar turno: {ex.Message}");
             }
         }
+
+
 
         private void OnExchangeCardsRequested()
         {
@@ -638,6 +695,7 @@ namespace WinFormsApp1
                 Console.WriteLine($"❌ Error forzando UI: {ex.Message}");
             }
         }
+        
 
         #endregion
 

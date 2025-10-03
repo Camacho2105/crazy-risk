@@ -580,8 +580,9 @@ namespace CrazyRisk.Modelo
             {
                 int refuerzos = CalcularRefuerzos(actual);
                 actual.AddTropasDisponibles(refuerzos);
-                estado = EstadoJuego.Refuerzos;
 
+                // El GameController decide en OnEndTurnRequested si este jugador arranca en Refuerzos o Ataques.
+                
                 DispararEvento(TipoEvento.REFUERZOS_CALCULADOS.ToString(),
                     $"{actual.Alias} recibe {refuerzos} refuerzos",
                     new { Jugador = actual.Alias, Refuerzos = refuerzos });
@@ -592,6 +593,7 @@ namespace CrazyRisk.Modelo
                 ia.JugarTurno();
             }
         }
+
 
         public void EjecutarFasesTurno()
         {
