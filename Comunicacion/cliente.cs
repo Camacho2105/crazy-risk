@@ -23,12 +23,19 @@ namespace CrazyRisk.Comunicacion
                 conectado = true;
                 Console.WriteLine("Conectado al servidor.");
 
+                // Iniciar hilo para escuchar mensajes
                 Thread hiloEscucha = new Thread(EscucharServidor);
+                hiloEscucha.IsBackground = true; // Importante: hilo en background
                 hiloEscucha.Start();
+                
+                Console.WriteLine("Hilo de escucha iniciado");
+                
+                // ✅ NO bloquear aquí, mantener conexión abierta
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error al conectar: {ex.Message}");
+                conectado = false;
             }
         }
 
@@ -36,24 +43,38 @@ namespace CrazyRisk.Comunicacion
         {
             try
             {
-                byte[] buffer = new byte[1024];
-                while (conectado && client.Connected)
+                byte[] buffer = new byte[4096]; // Aumentar buffer
+                while (conectado && client != null && client.Connected)
                 {
                     int bytes = stream.Read(buffer, 0, buffer.Length);
-                    if (bytes == 0) break;
+                    if (bytes == 0)
+                    {
+                        Console.WriteLine("Servidor cerró la conexión");
+                        break;
+                    }
+                    
                     string mensaje = Encoding.UTF8.GetString(buffer, 0, bytes);
-
-                    Console.WriteLine("\n[Servidor] " + mensaje);
-                    OnMensajeRecibido?.Invoke(mensaje);
+                    
+                    // Manejar múltiples mensajes si vienen juntos
+                    string[] mensajes = mensaje.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                    
+                    foreach (var msg in mensajes)
+                    {
+                        if (!string.IsNullOrWhiteSpace(msg))
+                        {
+                            Console.WriteLine($"[Servidor] {msg}");
+                            OnMensajeRecibido?.Invoke(msg.Trim());
+                        }
+                    }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                Console.WriteLine("Conexión perdida con el servidor.");
+                Console.WriteLine($"Error en hilo de escucha: {ex.Message}");
             }
             finally
             {
-                Desconectar();
+                Console.WriteLine("Hilo de escucha terminado");
             }
         }
 

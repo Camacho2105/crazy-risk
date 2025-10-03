@@ -34,14 +34,22 @@ namespace WinFormsApp1
                 _partida.OnEventoJuego += OnEventoLogica;
                 Console.WriteLine("✅ Suscrito a eventos de partida");
             }
+            
             ConectarEventosUI();
             ConectarEventosLogica();
             // 🆕 Forzar primera actualización
             ForzarActualizacionUI();
         }
-
+        public void SolicitarEstadoInicial()
+        {
+            if (!_esServidor && _cliente != null)
+            {
+                _cliente.Enviar("SOLICITAR_ESTADO");
+                Console.WriteLine("Solicitando estado inicial del servidor...");
+            }
+        }
         #region Conexión de Eventos UI → Lógica
-
+        
         private void ConectarEventosUI()
         {
             // En el constructor de GameController o en ActualizarUI
@@ -206,22 +214,38 @@ namespace WinFormsApp1
         {
             try
             {
+                Console.WriteLine($"\n⚔️ DEBUG OnAttackRequested:");
+                Console.WriteLine($"  Origen: {origenId}, Destino: {destinoId}");
+                Console.WriteLine($"  Dados Atk: {dadosAtk}, Dados Def: {dadosDef}");
+                Console.WriteLine($"  EsServidor: {_esServidor}");
+                
                 if (_esServidor)
                 {
                     // Ejecutar localmente
                     string nombreOrigen = MapeoTerritorios.ObtenerNombreTerritorio(origenId);
                     string nombreDestino = MapeoTerritorios.ObtenerNombreTerritorio(destinoId);
 
+                    Console.WriteLine($"  Nombre Origen: {nombreOrigen}");
+                    Console.WriteLine($"  Nombre Destino: {nombreDestino}");
+
                     var origen = _partida.Mapa.ObtenerTerritorioPorNombre(nombreOrigen);
                     var destino = _partida.Mapa.ObtenerTerritorioPorNombre(nombreDestino);
 
                     if (origen == null || destino == null)
                     {
+                        Console.WriteLine($"  ❌ Territorios no encontrados");
                         MostrarError("Territorios no válidos para ataque");
                         return;
                     }
 
+                    Console.WriteLine($"  Origen encontrado: {origen.Nombre} (Dueño: {origen.Dueno?.Alias})");
+                    Console.WriteLine($"  Destino encontrado: {destino.Nombre} (Dueño: {destino.Dueno?.Alias})");
+                    Console.WriteLine($"  Tropas Origen: {origen.Tropas}, Tropas Destino: {destino.Tropas}");
+
                     bool conquistado = _partida.RealizarAtaque(origen, destino, dadosAtk);
+                    Console.WriteLine($"  ✅ Ataque ejecutado. Conquistado: {conquistado}");
+
+                    // Actualizar UI localmente
                     ActualizarUI();
 
                     if (conquistado)
@@ -235,16 +259,28 @@ namespace WinFormsApp1
                             MostrarMensaje($"¡{ganador.Alias} ha ganado la partida!", "¡Victoria Total!");
                         }
                     }
+
+                    // Difundir cambios a todos los clientes
+                    _servidor?.Difundir($"ACTUALIZAR_TERRITORIO:{origen.Nombre},{origen.Dueno.Alias},{origen.Tropas}");
+                    _servidor?.Difundir($"ACTUALIZAR_TERRITORIO:{destino.Nombre},{destino.Dueno.Alias},{destino.Tropas}");
                 }
                 else
                 {
-                    // Cliente: solo enviar
-                    _cliente?.Enviar($"ATACAR:{origenId},{destinoId},{dadosAtk}");
-                    Console.WriteLine($"📡 Enviado: ATACAR:{origenId},{destinoId},{dadosAtk}");
+                    // Cliente: solo enviar comando al servidor
+                    if (_cliente != null)
+                    {
+                        _cliente.Enviar($"ATACAR:{origenId},{destinoId},{dadosAtk}");
+                        Console.WriteLine($"📡 Comando enviado al servidor: ATACAR:{origenId},{destinoId},{dadosAtk}");
+                    }
+                    else
+                    {
+                        MostrarError("No hay conexión con el servidor.");
+                    }
                 }
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"❌ Error en ataque: {ex.Message}");
                 MostrarError($"Error en ataque: {ex.Message}");
             }
         }
@@ -253,30 +289,61 @@ namespace WinFormsApp1
         {
             try
             {
+                Console.WriteLine($"\n🚚 DEBUG OnFortifyRequested:");
+                Console.WriteLine($"  Origen: {origenId}, Destino: {destinoId}");
+                Console.WriteLine($"  Cantidad: {cantidad}");
+                Console.WriteLine($"  EsServidor: {_esServidor}");
+                
                 if (_esServidor)
                 {
                     var jugador = _partida.GetJugadorActual();
                     string nombreOrigen = MapeoTerritorios.ObtenerNombreTerritorio(origenId);
                     string nombreDestino = MapeoTerritorios.ObtenerNombreTerritorio(destinoId);
 
+                    Console.WriteLine($"  Jugador: {jugador.Alias}");
+                    Console.WriteLine($"  Nombre Origen: {nombreOrigen}");
+                    Console.WriteLine($"  Nombre Destino: {nombreDestino}");
+
                     var origen = _partida.Mapa.ObtenerTerritorioPorNombre(nombreOrigen);
                     var destino = _partida.Mapa.ObtenerTerritorioPorNombre(nombreDestino);
 
-                    if (origen != null && destino != null)
+                    if (origen == null || destino == null)
                     {
-                        _partida.MoverTropas(jugador, origen, destino, cantidad);
-                        ActualizarUI();
-                        MostrarMensaje($"Movidas {cantidad} tropas", "Fortificación");
+                        Console.WriteLine($"  ❌ Territorios no encontrados");
+                        MostrarError("Territorios no válidos para movimiento");
+                        return;
                     }
+
+                    Console.WriteLine($"  Origen: {origen.Nombre} (Dueño: {origen.Dueno?.Alias}, Tropas: {origen.Tropas})");
+                    Console.WriteLine($"  Destino: {destino.Nombre} (Dueño: {destino.Dueno?.Alias}, Tropas: {destino.Tropas})");
+
+                    _partida.MoverTropas(jugador, origen, destino, cantidad);
+                    Console.WriteLine($"  ✅ Movimiento ejecutado");
+
+                    ActualizarUI();
+                    MostrarMensaje($"Movidas {cantidad} tropas de {origen.Nombre} a {destino.Nombre}", "Fortificación");
+
+                    // Difundir cambios a todos los clientes
+                    _servidor?.Difundir($"ACTUALIZAR_TERRITORIO:{origen.Nombre},{origen.Dueno.Alias},{origen.Tropas}");
+                    _servidor?.Difundir($"ACTUALIZAR_TERRITORIO:{destino.Nombre},{destino.Dueno.Alias},{destino.Tropas}");
                 }
                 else
                 {
-                    _cliente?.Enviar($"FORTIFY:{origenId},{destinoId},{cantidad}");
-                    Console.WriteLine($"📡 Enviado: FORTIFY");
+                    // Cliente: solo enviar comando al servidor
+                    if (_cliente != null)
+                    {
+                        _cliente.Enviar($"FORTIFY:{origenId},{destinoId},{cantidad}");
+                        Console.WriteLine($"📡 Comando enviado al servidor: FORTIFY:{origenId},{destinoId},{cantidad}");
+                    }
+                    else
+                    {
+                        MostrarError("No hay conexión con el servidor.");
+                    }
                 }
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"❌ Error al mover tropas: {ex.Message}");
                 MostrarError($"Error al mover tropas: {ex.Message}");
             }
         }
@@ -593,9 +660,9 @@ namespace WinFormsApp1
         public void InicializarJugadores(string aliasJugador1, string colorJugador1, 
                                          string aliasJugador2, string colorJugador2)
         {
-            var jugador1 = new Jugador(aliasJugador1, colorJugador1, 40);
-            var jugador2 = new Jugador(aliasJugador2, colorJugador2, 40);
-            var neutral = new EjercitoNeutral("Neutral", "#A0A0A0", 40);
+            var jugador1 = new Jugador(aliasJugador1, colorJugador1, 0);
+            var jugador2 = new Jugador(aliasJugador2, colorJugador2, 0);
+            var neutral = new EjercitoNeutral("Neutral", "#A0A0A0", 0);
 
             _partida.AddJugador(jugador1);
             _partida.AddJugador(jugador2);
@@ -611,39 +678,43 @@ namespace WinFormsApp1
         {
             if (_esServidor)
             {
-                // Iniciar servidor
                 _servidor = new Servidor(puerto, _partida);
                 
-                // Suscribirse a eventos para enviar cambios a clientes
                 _partida.OnEventoJuego += (evento) =>
                 {
                     string mensaje = $"{evento.Tipo}:{evento.Mensaje}";
                     _servidor?.Difundir(mensaje);
                 };
 
-                // Iniciar servidor en hilo separado
                 Task.Run(() => _servidor.Iniciar());
                 
                 Console.WriteLine($"Servidor iniciado en puerto {puerto}");
             }
             else
             {
-                // Iniciar cliente
                 if (string.IsNullOrEmpty(ipServidor))
-                    throw new ArgumentException("Se requiere IP del servidor para el cliente.");
+                    throw new ArgumentException("Se requiere IP del servidor.");
 
                 _cliente = new Cliente();
                 
-                // Suscribirse a mensajes del servidor
                 _cliente.OnMensajeRecibido += (msg) =>
                 {
-                    Console.WriteLine($"[RED] Mensaje recibido: {msg}");
-                    
-                    // Procesar mensaje y actualizar UI en el hilo de UI
-                    _ui.Invoke(new Action(() =>
+                    // Procesar en hilo de UI
+                    try
                     {
-                        ProcesarMensajeRed(msg);
-                    }));
+                        if (_ui.InvokeRequired)
+                        {
+                            _ui.Invoke(new Action(() => ProcesarMensajeRed(msg)));
+                        }
+                        else
+                        {
+                            ProcesarMensajeRed(msg);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error invocando procesamiento: {ex.Message}");
+                    }
                 };
 
                 // Conectar en hilo separado
@@ -657,9 +728,85 @@ namespace WinFormsApp1
         {
             try
             {
-                Console.WriteLine($"Procesando mensaje: {mensaje}");
+                Console.WriteLine($"[RED] Procesando: {mensaje}");
                 
-                if (mensaje.StartsWith("ACTUALIZAR_TERRITORIO:"))
+                if (mensaje.StartsWith("JUGADOR:"))
+                {
+                    // JUGADOR:Alias,Color,Tropas,CantTerritorios
+                    var partes = mensaje.Substring(8).Split(',');
+                    string alias = partes[0];
+                    string color = partes[1];
+                    int tropas = int.Parse(partes[2]);
+                    
+                    // Verificar si el jugador ya existe
+                    var jugadorExistente = _partida.Jugadores.ToArray()
+                        .FirstOrDefault(j => j.Alias == alias);
+                    
+                    if (jugadorExistente == null)
+                    {
+                        // Crear nuevo jugador
+                        Jugador nuevoJugador;
+                        if (alias.ToLower() == "neutral")
+                            nuevoJugador = new EjercitoNeutral(alias, color, tropas);
+                        else
+                            nuevoJugador = new Jugador(alias, color, tropas);
+                        
+                        _partida.AddJugador(nuevoJugador);
+                        Console.WriteLine($"  Jugador creado: {alias}");
+                    }
+                }
+                else if (mensaje.StartsWith("TERRITORIO:"))
+                {
+                    // TERRITORIO:Nombre,Dueño,Tropas
+                    var partes = mensaje.Substring(11).Split(',');
+                    string nombreTerr = partes[0];
+                    string dueno = partes[1];
+                    int tropas = int.Parse(partes[2]);
+                    
+                    var territorio = _partida.Mapa.ObtenerTerritorioPorNombre(nombreTerr);
+                    if (territorio != null)
+                    {
+                        // Asignar dueño
+                        var jugadorDueno = _partida.Jugadores.ToArray()
+                            .FirstOrDefault(j => j.Alias == dueno);
+                        
+                        if (jugadorDueno != null)
+                        {
+                            if (territorio.Dueno != jugadorDueno)
+                            {
+                                territorio.Dueno?.RemoveTerritorio(territorio);
+                                jugadorDueno.AddTerritorio(territorio);
+                            }
+                        }
+                        
+                        // Asignar tropas
+                        while (territorio.Tropas < tropas)
+                            territorio.AddTropas(1);
+                        
+                        while (territorio.Tropas > tropas)
+                            territorio.RemoveTropas(1);
+                    }
+                }
+                else if (mensaje.StartsWith("TURNO_ACTUAL:"))
+                {
+                    var alias = mensaje.Substring(13);
+                    Console.WriteLine($"  Turno actual: {alias}");
+                }
+                else if (mensaje.StartsWith("FASE_ACTUAL:"))
+                {
+                    var fase = mensaje.Substring(12);
+                    Console.WriteLine($"  Fase actual: {fase}");
+                }
+                else if (mensaje.StartsWith("ESTADO_COMPLETO"))
+                {
+                    Console.WriteLine("  Estado inicial recibido completamente");
+                    ActualizarUI();
+                    _ui.Invoke(new Action(() =>
+                    {
+                        MessageBox.Show("Conectado al servidor. Sincronización completada.", "Cliente");
+                    }));
+                }
+                else if (mensaje.StartsWith("ACTUALIZAR_TERRITORIO:"))
                 {
                     // ACTUALIZAR_TERRITORIO:Nombre,Dueño,Tropas
                     var partes = mensaje.Substring(22).Split(',');
@@ -667,7 +814,6 @@ namespace WinFormsApp1
                     string dueno = partes[1];
                     int tropas = int.Parse(partes[2]);
                     
-                    // Actualizar territorio en el modelo local
                     var territorio = _partida.Mapa.ObtenerTerritorioPorNombre(nombreTerr);
                     if (territorio != null)
                     {
@@ -680,7 +826,6 @@ namespace WinFormsApp1
                             jugadorDueno.AddTerritorio(territorio);
                         }
                         
-                        // Ajustar tropas
                         int diff = tropas - territorio.Tropas;
                         if (diff > 0)
                             territorio.AddTropas(diff);
@@ -692,7 +837,6 @@ namespace WinFormsApp1
                 }
                 else if (mensaje.StartsWith("ACTUALIZAR_REFUERZOS:"))
                 {
-                    // ACTUALIZAR_REFUERZOS:Alias,Tropas
                     var partes = mensaje.Substring(21).Split(',');
                     string alias = partes[0];
                     int tropas = int.Parse(partes[1]);
@@ -702,33 +846,25 @@ namespace WinFormsApp1
                     
                     if (jugador != null)
                     {
-                        int diff = tropas - jugador.TropasDisponibles;
-                        if (diff > 0)
-                            jugador.AddTropasDisponibles(diff);
-                        else if (diff < 0)
-                            jugador.RemoveTropasDisponibles(-diff);
+                        int actual = jugador.TropasDisponibles;
+                        if (tropas > actual)
+                            jugador.AddTropasDisponibles(tropas - actual);
+                        else if (tropas < actual)
+                            jugador.RemoveTropasDisponibles(actual - tropas);
                     }
                     
                     ActualizarUI();
                 }
                 else if (mensaje.StartsWith("CAMBIO_TURNO:"))
                 {
-                    // CAMBIO_TURNO:Alias,Tropas
                     var partes = mensaje.Substring(13).Split(',');
-                    string alias = partes[0];
-                    
-                    ActualizarUI();
-                }
-                else if (mensaje.StartsWith("CONQUISTA:"))
-                {
-                    var partes = mensaje.Substring(10).Split(',');
-                    MessageBox.Show($"{partes[0]} conquistó {partes[1]}", "Conquista");
                     ActualizarUI();
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error procesando mensaje: {ex.Message}");
+                Console.WriteLine($"StackTrace: {ex.StackTrace}");
             }
         }
 

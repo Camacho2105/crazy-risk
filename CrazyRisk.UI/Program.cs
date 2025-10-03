@@ -62,65 +62,71 @@ namespace WinFormsApp1
                 Console.WriteLine("✅ GameForm mostrado");
             }
 
-            void OpenGameWithController(string alias, int port, bool esServidor, string ipServidor = null)
+            void OpenGameAsServer(string alias, int port)
             {
                 try
                 {
-                    Console.WriteLine($"Intentando abrir juego: {alias}, Servidor={esServidor}");
+                    Console.WriteLine($"Abriendo como SERVIDOR: {alias}:{port}");
                     
                     var game = new GameForm();
-                    game.FormClosed += (_, __) => 
-                    {
-                        Console.WriteLine("Cerrando aplicación desde GameForm");
-                        start.Close();
-                        Application.Exit();
-                    };
+                    game.FormClosed += (_, __) => { start.Close(); Application.Exit(); };
 
-                    // Crear mapa y partida
+                    // Servidor crea la partida
                     var mapa = CreadorMapa.CrearMapaMundial();
                     var partida = new Partida(mapa);
 
-                    // Crear jugadores
                     var jugador1 = new Jugador(alias, "#EA5545", 40);
-                    var jugador2 = new Jugador("Oponente", "#3488F5", 40);
+                    var jugador2 = new Jugador("Cliente", "#3488F5", 40);
                     var neutral = new EjercitoNeutral("Neutral", "#A0A0A0", 40);
 
                     partida.AddJugador(jugador1);
                     partida.AddJugador(jugador2);
                     partida.AddJugador(neutral);
-
-                    // Preparar partida
                     partida.PrepararPartida();
 
-                    // Crear GameController
-                    var controller = new GameController(game, partida, esServidor, alias);
-
-                    // Iniciar red
-                    if (esServidor)
-                    {
-                        Console.WriteLine($"Iniciando servidor en puerto {port}...");
-                        controller.IniciarRed(puerto: port);
-                        MessageBox.Show($"Servidor iniciado en puerto {port}\nEsperando conexiones...", 
-                                    "Servidor Activo", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
-                    else
-                    {
-                        if (string.IsNullOrEmpty(ipServidor))
-                        {
-                            MessageBox.Show("Se requiere IP del servidor", "Error");
-                            return;
-                        }
-                        
-                        Console.WriteLine($"Conectando a {ipServidor}:{port}...");
-                        controller.IniciarRed(puerto: port, ipServidor: ipServidor);
-                    }
-
-                    // Forzar actualización UI
+                    var controller = new GameController(game, partida, true, alias);
+                    controller.IniciarRed(puerto: port);
                     controller.ForzarActualizacionUI();
-                    
+
                     start.Hide();
                     game.Show();
-                    Console.WriteLine("GameForm mostrado con controlador");
+                    
+                    MessageBox.Show($"Servidor activo en puerto {port}", "Servidor");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"ERROR: {ex.Message}");
+                    MessageBox.Show($"Error: {ex.Message}", "Error");
+                }
+            }
+
+            void OpenGameAsClient(string alias, string ipServidor, int port)
+            {
+                try
+                {
+                    Console.WriteLine($"Abriendo como CLIENTE: {alias} -> {ipServidor}:{port}");
+                    
+                    var game = new GameForm();
+                    game.FormClosed += (_, __) => { start.Close(); Application.Exit(); };
+
+                    // Cliente NO crea partida aún, espera datos del servidor
+                    var mapa = CreadorMapa.CrearMapaMundial();
+                    var partida = new Partida(mapa);
+
+                    // Crear jugadores vacíos (se llenarán con datos del servidor)
+                    var controller = new GameController(game, partida, false, alias);
+                    
+                    // Conectar al servidor
+                    controller.IniciarRed(puerto: port, ipServidor: ipServidor);
+                    
+                    // Solicitar estado inicial
+                    System.Threading.Thread.Sleep(500); // Esperar conexión
+                    controller.SolicitarEstadoInicial();
+
+                    start.Hide();
+                    game.Show();
+                    
+                    Console.WriteLine("Cliente conectado, esperando datos del servidor...");
                 }
                 catch (Exception ex)
                 {
@@ -133,13 +139,13 @@ namespace WinFormsApp1
             start.HostRequested += (s, e) => 
             {
                 Console.WriteLine($"Evento HostRequested: {e.Alias}:{e.Port}");
-                OpenGameWithController(e.Alias, e.Port, esServidor: true);
+                OpenGameAsServer(e.Alias, e.Port);
             };
 
             start.JoinRequested += (s, e) => 
             {
                 Console.WriteLine($"Evento JoinRequested: {e.Alias} -> {e.Host}:{e.Port}");
-                OpenGameWithController(e.Alias, e.Port, esServidor: false, ipServidor: e.Host);
+                OpenGameAsClient(e.Alias, e.Host, e.Port);
             };
 
             Console.WriteLine("🚀 Iniciando Application.Run...");

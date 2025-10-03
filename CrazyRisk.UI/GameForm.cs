@@ -44,7 +44,7 @@ namespace WinFormsApp1
             { 
                 _canvas.SelectionA = value; 
                 UpdateSelectionLabels(); 
-                UpdateButtonsEnabled(); // ✅ Agregar esta línea
+                UpdateButtonsEnabled(); 
                 _canvas.Invalidate(); 
             }
         }
@@ -55,7 +55,7 @@ namespace WinFormsApp1
             { 
                 _canvas.SelectionB = value; 
                 UpdateSelectionLabels(); 
-                UpdateButtonsEnabled(); // ✅ Agregar esta línea
+                UpdateButtonsEnabled(); 
                 _canvas.Invalidate(); 
             }
         }
@@ -119,27 +119,36 @@ namespace WinFormsApp1
             Controls.Add(_split);
 
             _canvas = new MapCanvas { Dock = DockStyle.Fill };
+
+            // Click izquierdo: Seleccionar A
             _canvas.TerritoryClicked += id =>
             {
-                Console.WriteLine($"🖱️ Territorio clickeado: {id}");
+                Console.WriteLine($"🖱️ Territorio clickeado (IZQ): {id}");
+                SelectionA = id;
+                SelectionB = null;
+                TerritorySelected?.Invoke(id);
+                UpdateButtonsEnabled();
+            };
+
+            // Click derecho: Seleccionar B
+            _canvas.TerritoryClickedRight += id =>
+            {
+                Console.WriteLine($"🖱️ Territorio clickeado (DER): {id}");
                 
-                if (SelectionA is null || SelectionA != id) 
-                { 
-                    SelectionA = id; 
-                    SelectionB = null; 
-                    Console.WriteLine($"  ✅ SelectionA = {SelectionA}, SelectionB = null");
+                if (!SelectionA.HasValue)
+                {
+                    SelectionA = id;
                 }
-                else 
-                { 
-                    SelectionB = id; 
-                    Console.WriteLine($"  ✅ SelectionA = {SelectionA}, SelectionB = {SelectionB}");
+                else
+                {
+                    SelectionB = id;
                 }
                 
                 TerritorySelected?.Invoke(id);
-                UpdateButtonsEnabled(); // ✅ CRÍTICO: Actualizar botones después de seleccionar
+                UpdateButtonsEnabled();
             };
-            _split.Panel1.Controls.Add(_canvas);
 
+            _split.Panel1.Controls.Add(_canvas);
             var hud = BuildHud(HUD_WIDTH);
             _split.Panel2.Controls.Add(hud);
 
@@ -396,10 +405,16 @@ namespace WinFormsApp1
 
         private void UpdateDiceLimits()
         {
-            int troopsA = SelectionA.HasValue ? (_territories.FirstOrDefault(t => t.Id == SelectionA)?.Troops ?? 0) : 0;
-            int troopsB = SelectionB.HasValue ? (_territories.FirstOrDefault(t => t.Id == SelectionB)?.Troops ?? 0) : 0;
+            var terrA = _territories.FirstOrDefault(t => t.Id == SelectionA);
+            var terrB = _territories.FirstOrDefault(t => t.Id == SelectionB);
+            
+            int troopsA = terrA?.Troops ?? 0;
+            int troopsB = terrB?.Troops ?? 0;
 
+            // Para ataque: máximo de dados = mínimo(3, tropasA - 1)
             int atkMax = (troopsA >= 2) ? Math.Min(3, troopsA - 1) : 0;
+            
+            // Para defensa: máximo de dados = mínimo(2, tropasB)
             int defMax = (troopsB >= 1) ? Math.Min(2, troopsB) : 0;
 
             _lblAtkLimit.Text = (atkMax > 0) ? $"máx {atkMax}" : "—";
@@ -414,9 +429,16 @@ namespace WinFormsApp1
             if (_nudAtkDice.Value > _nudAtkDice.Maximum) _nudAtkDice.Value = _nudAtkDice.Maximum;
             if (_nudDefDice.Value > _nudDefDice.Maximum) _nudDefDice.Value = _nudDefDice.Maximum;
 
-            _btnAttack.Enabled = (_phase == Phase.Attacks) &&
-                                 SelectionA.HasValue && SelectionB.HasValue &&
-                                 (atkMax > 0) && (defMax > 0);
+            // Solo habilitar ataque si es fase de ataques y los territorios son válidos
+            bool canAttack = (_phase == Phase.Attacks) &&
+                            SelectionA.HasValue && 
+                            SelectionB.HasValue &&
+                            terrA?.OwnerId == _currentPlayerId &&
+                            terrB?.OwnerId != _currentPlayerId &&
+                            atkMax > 0 && 
+                            defMax > 0;
+            
+            _btnAttack.Enabled = canAttack;
         }
 
         private void UpdateButtonsEnabled()
@@ -424,21 +446,54 @@ namespace WinFormsApp1
             Console.WriteLine($"\n🔍 DEBUG UpdateButtonsEnabled:");
             Console.WriteLine($"  _phase = {_phase}");
             Console.WriteLine($"  SelectionA = {SelectionA}");
+            Console.WriteLine($"  SelectionB = {SelectionB}");
             Console.WriteLine($"  _reinforcements = {_reinforcements}");
             Console.WriteLine($"  _currentPlayerId = {_currentPlayerId}");
             
+            // Obtener información de los territorios seleccionados
+            var terrA = _territories.FirstOrDefault(t => t.Id == SelectionA);
+            var terrB = _territories.FirstOrDefault(t => t.Id == SelectionB);
+            
+            Console.WriteLine($"  TerrA: {terrA?.Name} (Owner: {terrA?.OwnerId})");
+            Console.WriteLine($"  TerrB: {terrB?.Name} (Owner: {terrB?.OwnerId})");
+            
             _btnStartGame.Enabled = (_phase == Phase.Lobby || _phase == Phase.Setup);
             
-            bool placeEnabled = (_phase == Phase.Reinforcements) && SelectionA.HasValue && _reinforcements > 0;
+            // Botón Colocar
+            bool placeEnabled = (_phase == Phase.Reinforcements) && 
+                            SelectionA.HasValue && 
+                            _reinforcements > 0 &&
+                            terrA?.OwnerId == _currentPlayerId;
             Console.WriteLine($"  _btnPlace.Enabled = {placeEnabled}");
             _btnPlace.Enabled = placeEnabled;
             
+            // Botón Auto-colocar
             _btnAutoPlace.Enabled = (_phase == Phase.Reinforcements) && _reinforcements > 0;
             Console.WriteLine($"  _btnAutoPlace.Enabled = {_btnAutoPlace.Enabled}");
             
-            _btnFortify.Enabled = (_phase == Phase.Fortify) && SelectionA.HasValue && SelectionB.HasValue;
+            // Botón Atacar
+            bool attackEnabled = (_phase == Phase.Attacks) && 
+                                SelectionA.HasValue && 
+                                SelectionB.HasValue &&
+                                terrA?.OwnerId == _currentPlayerId &&
+                                terrB?.OwnerId != _currentPlayerId &&
+                                terrA?.OwnerId != terrB?.OwnerId;
+            _btnAttack.Enabled = attackEnabled;
+            Console.WriteLine($"  _btnAttack.Enabled = {attackEnabled}");
+            
+            // Botón Mover (Fortificar)
+            bool fortifyEnabled = (_phase == Phase.Fortify) && 
+                                SelectionA.HasValue && 
+                                SelectionB.HasValue &&
+                                terrA?.OwnerId == _currentPlayerId &&
+                                terrB?.OwnerId == _currentPlayerId &&
+                                terrA?.Id != terrB?.Id;
+            _btnFortify.Enabled = fortifyEnabled;
+            Console.WriteLine($"  _btnFortify.Enabled = {fortifyEnabled}");
+            
             _btnEndTurn.Enabled = (_phase != Phase.Lobby && _phase != Phase.GameOver);
             _btnInitiative.Enabled = (_phase == Phase.Attacks);
+            
             UpdateDiceLimits();
         }
 
@@ -506,6 +561,7 @@ namespace WinFormsApp1
         public int? SelectionA { get; set; }
         public int? SelectionB { get; set; }
         public event Action<int>? TerritoryClicked;
+        public event Action<int>? TerritoryClickedRight;
 
         public MapCanvas()
         {
@@ -513,12 +569,29 @@ namespace WinFormsApp1
             BackColor = Color.FromArgb(220, 232, 245);
             Padding = new Padding(12);
             Resize += (_, __) => RebuildPaths();
-            MouseClick += (s, e) => { var id = HitTest(e.Location); if (id.HasValue) TerritoryClicked?.Invoke(id.Value); };
+            MouseDown += MapCanvas_MouseDown;
             MouseMove += MapCanvas_MouseMove;
 
             _tt.InitialDelay = 120; _tt.ReshowDelay = 100; _tt.AutoPopDelay = 2000; _tt.ShowAlways = true;
         }
-
+        private void MapCanvas_MouseDown(object sender, MouseEventArgs e)
+        {
+            var id = HitTest(e.Location);
+            if (!id.HasValue) return;
+            
+            if (e.Button == MouseButtons.Left)
+            {
+                // Click izquierdo = Selección A
+                TerritoryClicked?.Invoke(id.Value);
+                Console.WriteLine($"🖱️ Click IZQ en territorio {id.Value} → SelectionA");
+            }
+            else if (e.Button == MouseButtons.Right)
+            {
+                // Click derecho = Selección B (directamente)
+                TerritoryClickedRight?.Invoke(id.Value);
+                Console.WriteLine($"🖱️ Click DER en territorio {id.Value} → SelectionB");
+            }
+        }
         public void LoadShapes(IEnumerable<TerritoryShape> shapes, IEnumerable<Bridge> bridges)
         {
             _shapes.Clear(); _shapes.AddRange(shapes);

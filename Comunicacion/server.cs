@@ -54,28 +54,7 @@ namespace CrazyRisk.Comunicacion
                 Console.WriteLine("Servidor detenido.");
             }
         }
-        private void EnviarEstadoCompleto(TcpClient cliente)
-        {
-            // Enviar jugadores
-            foreach (var j in partida.Jugadores.ToArray())
-            {
-                Enviar(cliente, $"JUGADOR:{j.Alias},{j.Color},{j.TropasDisponibles}");
-            }
-            
-            // Enviar territorios
-            foreach (var t in partida.Mapa.GetTerritorios())
-            {
-                string dueno = t.Dueno?.Alias ?? "Neutral";
-                Enviar(cliente, $"TERRITORIO:{t.Nombre},{dueno},{t.Tropas}");
-            }
-            
-            // Enviar turno actual
-            var actual = partida.GetJugadorActual();
-            Enviar(cliente, $"TURNO:{actual.Alias}");
-            
-            // Enviar fase actual
-            Enviar(cliente, $"FASE:{partida.Estado}");
-        }
+        
         private void ManejarCliente(TcpClient cliente)
         {
             try
@@ -112,18 +91,65 @@ namespace CrazyRisk.Comunicacion
                 Console.WriteLine("Cliente desconectado.");
             }
         }
+        private void EnviarEstadoCompleto(TcpClient cliente)
+        {
+            try
+            {
+                Console.WriteLine("Enviando estado completo al cliente...");
+                
+                // 1. Enviar jugadores
+                foreach (var j in partida.Jugadores.ToArray())
+                {
+                    string msg = $"JUGADOR:{j.Alias},{j.Color},{j.TropasDisponibles},{j.GetCantTerritorios()}";
+                    Enviar(cliente, msg);
+                    Console.WriteLine($"  Enviado: {msg}");
+                }
+                
+                // 2. Enviar todos los territorios
+                foreach (var t in partida.Mapa.GetTerritorios())
+                {
+                    string dueno = t.Dueno?.Alias ?? "Neutral";
+                    string msg = $"TERRITORIO:{t.Nombre},{dueno},{t.Tropas}";
+                    Enviar(cliente, msg);
+                }
+                
+                // 3. Enviar turno actual
+                var actual = partida.GetJugadorActual();
+                string msgTurno = $"TURNO_ACTUAL:{actual.Alias}";
+                Enviar(cliente, msgTurno);
+                Console.WriteLine($"  Enviado: {msgTurno}");
+                
+                // 4. Enviar fase actual
+                string msgFase = $"FASE_ACTUAL:{partida.Estado}";
+                Enviar(cliente, msgFase);
+                Console.WriteLine($"  Enviado: {msgFase}");
+                
+                // 5. Señal de fin de sincronización
+                Enviar(cliente, "ESTADO_COMPLETO");
+                Console.WriteLine("Estado completo enviado.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error enviando estado: {ex.Message}");
+            }
+        }
 
         // Procesar comandos enviados por cliente
         private void ProcesarComando(TcpClient cliente, string comando)
         {
             try
             {
+                if (comando.StartsWith("SOLICITAR_ESTADO"))
+                {
+                    EnviarEstadoCompleto(cliente);
+                    return;
+                }
                 if (comando.StartsWith("TROPA:"))
                 {
                     var partes = comando.Substring(6).Split(',');
                     int territoryId = int.Parse(partes[0]);
                     int cantidad = int.Parse(partes[1]);
-                    
+
                     string nombreTerr = MapeoTerritorios.ObtenerNombreTerritorio(territoryId);
                     var territorio = partida.Mapa.ObtenerTerritorioPorNombre(nombreTerr);
                     var jugador = partida.GetJugadorActual();
@@ -138,7 +164,7 @@ namespace CrazyRisk.Comunicacion
                             else
                                 break;
                         }
-                        
+
                         // Difundir cambio a TODOS los clientes
                         if (colocadas > 0)
                         {
@@ -156,18 +182,18 @@ namespace CrazyRisk.Comunicacion
 
                     string nombreOrigen = MapeoTerritorios.ObtenerNombreTerritorio(origenId);
                     string nombreDestino = MapeoTerritorios.ObtenerNombreTerritorio(destinoId);
-                    
+
                     var origen = partida.Mapa.ObtenerTerritorioPorNombre(nombreOrigen);
                     var destino = partida.Mapa.ObtenerTerritorioPorNombre(nombreDestino);
 
                     if (origen != null && destino != null)
                     {
                         bool conquistado = partida.RealizarAtaque(origen, destino, dadosAtk);
-                        
+
                         // Difundir resultado
                         Difundir($"ACTUALIZAR_TERRITORIO:{origen.Nombre},{origen.Dueno.Alias},{origen.Tropas}");
                         Difundir($"ACTUALIZAR_TERRITORIO:{destino.Nombre},{destino.Dueno.Alias},{destino.Tropas}");
-                        
+
                         if (conquistado)
                         {
                             Difundir($"CONQUISTA:{origen.Nombre},{destino.Nombre}");
@@ -178,7 +204,7 @@ namespace CrazyRisk.Comunicacion
                 {
                     partida.AvanzarTurno();
                     var nuevoJugador = partida.GetJugadorActual();
-                    
+
                     // Difundir cambio de turno
                     Difundir($"CAMBIO_TURNO:{nuevoJugador.Alias},{nuevoJugador.TropasDisponibles}");
                 }
@@ -191,7 +217,7 @@ namespace CrazyRisk.Comunicacion
 
                     string nombreOrigen = MapeoTerritorios.ObtenerNombreTerritorio(origenId);
                     string nombreDestino = MapeoTerritorios.ObtenerNombreTerritorio(destinoId);
-                    
+
                     var origen = partida.Mapa.ObtenerTerritorioPorNombre(nombreOrigen);
                     var destino = partida.Mapa.ObtenerTerritorioPorNombre(nombreDestino);
                     var jugador = partida.GetJugadorActual();
@@ -199,7 +225,7 @@ namespace CrazyRisk.Comunicacion
                     if (origen != null && destino != null && jugador != null)
                     {
                         partida.MoverTropas(jugador, origen, destino, cantidad);
-                        
+
                         // Difundir cambios
                         Difundir($"ACTUALIZAR_TERRITORIO:{origen.Nombre},{origen.Dueno.Alias},{origen.Tropas}");
                         Difundir($"ACTUALIZAR_TERRITORIO:{destino.Nombre},{destino.Dueno.Alias},{destino.Tropas}");

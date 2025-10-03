@@ -54,7 +54,7 @@ public static class CreadorMapa
         //Oceania
         var australia = new Territorio("Australia", "Oceania");
         var nuevaZelanda = new Territorio("Nueva Zelanda", "Oceania");
-        var papuaNuevaGuinea = new Territorio("Papua Nueva Guinea", "Oceania");
+        var papuaNuevaGuinea = new Territorio("papuaNuevaGuinea", "Oceania");
 
        // 2. Crear los 6 Continentes con su bonificación de refuerzos
         var asia = new Continente("Asia", 7);
@@ -169,142 +169,196 @@ public static class CreadorMapa
         mapa.AddContinente(oceania);
 
         // 4. Definir las conexiones entre territorios
-        //-- Conexiones en América del Norte --
+        // ===============================================
+        // América del Norte
+        // ===============================================
         groenlandia.AgregarAdyacente(canada);
-        groenlandia.AgregarAdyacente(reinoUnido); // Ruta marítima
-        canada.AgregarAdyacente(eeuu);
+        groenlandia.AgregarAdyacente(eeuu);
+
         canada.AgregarAdyacente(groenlandia);
+        canada.AgregarAdyacente(eeuu);
+        canada.AgregarAdyacente(mexico);
+
+        eeuu.AgregarAdyacente(groenlandia);
         eeuu.AgregarAdyacente(canada);
         eeuu.AgregarAdyacente(mexico);
-        mexico.AgregarAdyacente(eeuu);
-        mexico.AgregarAdyacente(costaRica);
-        costaRica.AgregarAdyacente(mexico);
-        costaRica.AgregarAdyacente(panama);
-        panama.AgregarAdyacente(costaRica);
-        panama.AgregarAdyacente(brasil); // Conexión a Sudamérica
+        eeuu.AgregarAdyacente(costaRica);
+        eeuu.AgregarAdyacente(panama);
 
-        //-- Conexiones en América del Sur --
+        mexico.AgregarAdyacente(canada);
+        mexico.AgregarAdyacente(eeuu);
+        mexico.AgregarAdyacente(panama);
+        mexico.AgregarAdyacente(francia);
+
+        costaRica.AgregarAdyacente(eeuu);
+        costaRica.AgregarAdyacente(panama);
+        costaRica.AgregarAdyacente(brasil);
+
+        panama.AgregarAdyacente(costaRica);
+        panama.AgregarAdyacente(eeuu);
+        panama.AgregarAdyacente(mexico);
+
+        // ===============================================
+        // América del Sur
+        // ===============================================
+        brasil.AgregarAdyacente(costaRica);
         brasil.AgregarAdyacente(panama);
         brasil.AgregarAdyacente(argentina);
         brasil.AgregarAdyacente(chile);
-        brasil.AgregarAdyacente(uruguay);
-        brasil.AgregarAdyacente(nigeria); // Ruta marítima a África
+
         argentina.AgregarAdyacente(brasil);
         argentina.AgregarAdyacente(chile);
         argentina.AgregarAdyacente(uruguay);
+
         chile.AgregarAdyacente(brasil);
         chile.AgregarAdyacente(argentina);
-        uruguay.AgregarAdyacente(brasil);
-        uruguay.AgregarAdyacente(argentina);
+        chile.AgregarAdyacente(uruguay);
 
-        //-- Conexiones en Europa --
-        reinoUnido.AgregarAdyacente(groenlandia); // Ruta marítima
-        reinoUnido.AgregarAdyacente(francia); // Ruta marítima
-        reinoUnido.AgregarAdyacente(paisesBajo); // Ruta marítima
+        uruguay.AgregarAdyacente(argentina);
+        uruguay.AgregarAdyacente(chile);
+        uruguay.AgregarAdyacente(marruecos);
+
+        // ===============================================
+        // Europa
+        // ===============================================
+        reinoUnido.AgregarAdyacente(portugal);
+        reinoUnido.AgregarAdyacente(francia);
+
+        portugal.AgregarAdyacente(reinoUnido);
         portugal.AgregarAdyacente(españa);
-        portugal.AgregarAdyacente(marruecos); // Ruta marítima
+        portugal.AgregarAdyacente(paisesBajo);
+
         españa.AgregarAdyacente(portugal);
-        españa.AgregarAdyacente(francia);
-        francia.AgregarAdyacente(españa);
+        españa.AgregarAdyacente(alemania);
+
+        francia.AgregarAdyacente(mexico);
         francia.AgregarAdyacente(reinoUnido);
-        francia.AgregarAdyacente(alemania);
+        francia.AgregarAdyacente(paisesBajo);
         francia.AgregarAdyacente(italia);
-        paisesBajo.AgregarAdyacente(reinoUnido);
+
+        paisesBajo.AgregarAdyacente(portugal);
+        paisesBajo.AgregarAdyacente(francia);
+        paisesBajo.AgregarAdyacente(croacia);
         paisesBajo.AgregarAdyacente(alemania);
-        alemania.AgregarAdyacente(francia);
+
+        alemania.AgregarAdyacente(españa);
         alemania.AgregarAdyacente(paisesBajo);
         alemania.AgregarAdyacente(polonia);
-        alemania.AgregarAdyacente(italia);
-        italia.AgregarAdyacente(francia);
-        italia.AgregarAdyacente(alemania);
-        italia.AgregarAdyacente(croacia);
+        alemania.AgregarAdyacente(hungria);
+
         polonia.AgregarAdyacente(alemania);
         polonia.AgregarAdyacente(rusia);
-        polonia.AgregarAdyacente(hungria);
+
+        italia.AgregarAdyacente(francia);
+        italia.AgregarAdyacente(croacia);
+        italia.AgregarAdyacente(marruecos);
+        italia.AgregarAdyacente(uruguay);
+
+        croacia.AgregarAdyacente(paisesBajo);
         croacia.AgregarAdyacente(italia);
         croacia.AgregarAdyacente(hungria);
-        hungria.AgregarAdyacente(polonia);
-        hungria.AgregarAdyacente(croacia);
-        hungria.AgregarAdyacente(turquia);
 
-        //-- Conexiones en África --
-        marruecos.AgregarAdyacente(portugal);
+        hungria.AgregarAdyacente(croacia);
+        hungria.AgregarAdyacente(alemania);
+
+        // ===============================================
+        // África
+        // ===============================================
+        marruecos.AgregarAdyacente(uruguay);
+        marruecos.AgregarAdyacente(italia);
         marruecos.AgregarAdyacente(egipto);
+        marruecos.AgregarAdyacente(nigeria);
+
         egipto.AgregarAdyacente(marruecos);
         egipto.AgregarAdyacente(nigeria);
-        egipto.AgregarAdyacente(kenia);
-        egipto.AgregarAdyacente(arabiaSaudita); // Conexión a Asia
-        nigeria.AgregarAdyacente(brasil);
+        egipto.AgregarAdyacente(congo);
+
+        nigeria.AgregarAdyacente(marruecos);
         nigeria.AgregarAdyacente(egipto);
         nigeria.AgregarAdyacente(congo);
-        congo.AgregarAdyacente(nigeria);
-        congo.AgregarAdyacente(kenia);
-        congo.AgregarAdyacente(sudafrica);
-        kenia.AgregarAdyacente(egipto);
-        kenia.AgregarAdyacente(congo);
-        kenia.AgregarAdyacente(sudafrica);
-        sudafrica.AgregarAdyacente(congo);
-        sudafrica.AgregarAdyacente(kenia);
-        sudafrica.AgregarAdyacente(australia); // Ruta marítima
+        nigeria.AgregarAdyacente(kenia);
+        nigeria.AgregarAdyacente(sudafrica);
 
-        //-- Conexiones en Asia --
-        turquia.AgregarAdyacente(hungria);
-        turquia.AgregarAdyacente(rusia);
+        congo.AgregarAdyacente(egipto);
+        congo.AgregarAdyacente(nigeria);
+        congo.AgregarAdyacente(sudafrica);
+        congo.AgregarAdyacente(rusia);
+
+        kenia.AgregarAdyacente(nigeria);
+        kenia.AgregarAdyacente(sudafrica);
+
+        sudafrica.AgregarAdyacente(kenia);
+        sudafrica.AgregarAdyacente(nigeria);
+        sudafrica.AgregarAdyacente(congo);
+
+        // ===============================================
+        // Asia
+        // ===============================================
         turquia.AgregarAdyacente(iran);
+        turquia.AgregarAdyacente(rusia);
+
+        iran.AgregarAdyacente(turquia);
+        iran.AgregarAdyacente(arabiaSaudita);
+        iran.AgregarAdyacente(mongolia);
+
+        arabiaSaudita.AgregarAdyacente(iran);
+        arabiaSaudita.AgregarAdyacente(qatar);
+        arabiaSaudita.AgregarAdyacente(china);
+
+        qatar.AgregarAdyacente(arabiaSaudita);
+        qatar.AgregarAdyacente(india);
+
+        rusia.AgregarAdyacente(congo);
         rusia.AgregarAdyacente(polonia);
         rusia.AgregarAdyacente(turquia);
-        rusia.AgregarAdyacente(iran);
         rusia.AgregarAdyacente(mongolia);
-        rusia.AgregarAdyacente(china);
-        rusia.AgregarAdyacente(coreaNorte);
-        arabiaSaudita.AgregarAdyacente(egipto);
-        arabiaSaudita.AgregarAdyacente(qatar);
-        arabiaSaudita.AgregarAdyacente(iran);
-        qatar.AgregarAdyacente(arabiaSaudita);
-        iran.AgregarAdyacente(turquia);
-        iran.AgregarAdyacente(rusia);
-        iran.AgregarAdyacente(arabiaSaudita);
-        iran.AgregarAdyacente(india);
-        india.AgregarAdyacente(iran);
-        india.AgregarAdyacente(china);
-        india.AgregarAdyacente(singapur);
-        china.AgregarAdyacente(rusia);
-        china.AgregarAdyacente(mongolia);
-        china.AgregarAdyacente(coreaNorte);
-        china.AgregarAdyacente(india);
+        rusia.AgregarAdyacente(coreaSur);
+
+        mongolia.AgregarAdyacente(iran);
         mongolia.AgregarAdyacente(rusia);
         mongolia.AgregarAdyacente(china);
-        mongolia.AgregarAdyacente(japon); // Ruta marítima
-        coreaNorte.AgregarAdyacente(rusia);
-        coreaNorte.AgregarAdyacente(china);
+        mongolia.AgregarAdyacente(japon);
+
+        china.AgregarAdyacente(arabiaSaudita);
+        china.AgregarAdyacente(mongolia);
+        china.AgregarAdyacente(india);
+        china.AgregarAdyacente(indonesia);
+
+        india.AgregarAdyacente(qatar);
+        india.AgregarAdyacente(china);
+        india.AgregarAdyacente(coreaNorte);
+        india.AgregarAdyacente(indonesia);
+
+        coreaNorte.AgregarAdyacente(india);
         coreaNorte.AgregarAdyacente(coreaSur);
+
+        coreaSur.AgregarAdyacente(rusia);
         coreaSur.AgregarAdyacente(coreaNorte);
-        coreaSur.AgregarAdyacente(japon); // Ruta marítima
-        japon.AgregarAdyacente(coreaSur);
+        coreaSur.AgregarAdyacente(japon);
+
         japon.AgregarAdyacente(mongolia);
-        singapur.AgregarAdyacente(india);
+        japon.AgregarAdyacente(coreaSur);
+        japon.AgregarAdyacente(singapur);
+
+        singapur.AgregarAdyacente(japon);
+        singapur.AgregarAdyacente(china);
         singapur.AgregarAdyacente(indonesia);
+
         indonesia.AgregarAdyacente(singapur);
-        indonesia.AgregarAdyacente(australia);
-        indonesia.AgregarAdyacente(papuaNuevaGuinea);
+        indonesia.AgregarAdyacente(india);
 
-        //-- Conexiones en Oceanía --
-        australia.AgregarAdyacente(sudafrica);
-        australia.AgregarAdyacente(indonesia);
+        // ===============================================
+        // Oceanía
+        // ===============================================
+        australia.AgregarAdyacente(rusia);
         australia.AgregarAdyacente(papuaNuevaGuinea);
-        australia.AgregarAdyacente(nuevaZelanda); // Ruta marítima
-        papuaNuevaGuinea.AgregarAdyacente(indonesia);
-        papuaNuevaGuinea.AgregarAdyacente(australia);
-        nuevaZelanda.AgregarAdyacente(australia);
 
-        // No olvides agregar todos los continentes al mapa al final
-        mapa.AddContinente(asia);
-        mapa.AddContinente(europa);
-        mapa.AddContinente(africa);
-        mapa.AddContinente(america_norte);
-        mapa.AddContinente(america_sur);
-        mapa.AddContinente(oceania);
-        
+        papuaNuevaGuinea.AgregarAdyacente(australia);
+        papuaNuevaGuinea.AgregarAdyacente(nuevaZelanda);
+
+        nuevaZelanda.AgregarAdyacente(papuaNuevaGuinea);
+
+
         
 
         return mapa;
