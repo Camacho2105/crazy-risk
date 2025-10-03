@@ -3,6 +3,9 @@ using System.Linq;
 using System.Windows.Forms;
 using CrazyRisk.Modelo;
 using CrazyRisk.Comunicacion;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Threading.Tasks;
 
 namespace WinFormsApp1
 {
