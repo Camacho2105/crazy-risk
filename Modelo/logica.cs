@@ -437,6 +437,8 @@ namespace CrazyRisk.Modelo
         private int contadorFibonacci;
         private int turnoActual;
         private static Random rnd = new Random(); 
+        private bool faseInicialCompletada = false;
+
 
         // PROPIEDADES DE SOLO LECTURA
         public MyLinkedList<Jugador> Jugadores => jugadores;
@@ -512,14 +514,27 @@ namespace CrazyRisk.Modelo
                         }
                         else
                         {
-
+                            // 👤 Aquí es donde tu UI debería permitir a los jugadores colocar tropas
+                            // Como lo dejaste vacío, entiendo que se hace en Program/GameForm
                         }
                         quedanTropas = true;
                     }
                 }
             }
+
+            // Al terminar la colocación, limpiar cualquier tropa inicial que no se haya gastado
+            foreach (var j in jugadores.ToArray())
+            {
+                if (!(j is EjercitoNeutral))
+                {
+                    j.RemoveTropasDisponibles(j.TropasDisponibles);
+                }
+            }
+
+            // Pasamos a la fase de refuerzos (ya arranca la lógica normal)
             estado = EstadoJuego.Refuerzos;
         }
+
 
 
         public void AsignarTerritoriosAleatorio()
@@ -555,6 +570,21 @@ namespace CrazyRisk.Modelo
                 j.AddTropasDisponibles(40 - usados); // quedan disponibles para colocación
             }
         }
+        public void DarRefuerzos(Jugador j)
+{
+    if (j == null || j is EjercitoNeutral) return;
+
+    //Recalcular solo para este turno
+    int refuerzos = CalcularRefuerzos(j);
+
+    j.AddTropasDisponibles(refuerzos);
+
+    DispararEvento(TipoEvento.REFUERZOS_CALCULADOS.ToString(),
+        $"{j.Alias} recibe {refuerzos} refuerzos",
+        new { Jugador = j.Alias, Refuerzos = refuerzos });
+}
+
+
         public void ColocarRefuerzosNeutral()
         {
             var neutral = jugadores.FirstOrDefault(j => j is EjercitoNeutral);
@@ -583,7 +613,7 @@ namespace CrazyRisk.Modelo
         // ====== TURNOS ======
         public Jugador GetJugadorActual() => jugadores.ToArray()[turnoActual];
         
-        public void AvanzarTurno()
+       public void AvanzarTurno()
         {
             if (jugadores.Count == 0) return;
 
@@ -607,14 +637,19 @@ namespace CrazyRisk.Modelo
             DispararEvento(TipoEvento.TURNO_CAMBIADO.ToString(),
                 $"Turno de {actual.Alias}", actual);
 
-            // ❌ Quita la parte que daba refuerzos aquí
-            // ✅ En su lugar, marca el estado en Refuerzos
+            // ⚡ Si volvimos al primer jugador, significa que terminó la primera ronda
+            if (!faseInicialCompletada && turnoActual == 0)
+            {
+                faseInicialCompletada = true;
+            }
+
+            // Solo cambia el estado a Refuerzos, los refuerzos reales se asignan en CambiarEstado
             CambiarEstado(EstadoJuego.Refuerzos);
-            if (actual is JugadorIA ia)
+
+            if (actual is JugadorIA ia && !(actual is EjercitoNeutral))
             {
                 ia.JugarTurno();
             }
-            // Los refuerzos se calculan y agregan SOLO cuando la UI/jugador entra en fase de Refuerzos
         }
 
 
@@ -654,10 +689,18 @@ namespace CrazyRisk.Modelo
             var estadoAnterior = estado;
             estado = nuevoEstado;
 
+            if (estado == EstadoJuego.Refuerzos && faseInicialCompletada && estadoAnterior != EstadoJuego.Refuerzos)
+            {
+                var actual = GetJugadorActual();
+                DarRefuerzos(actual);
+            }
+
             DispararEvento(TipoEvento.ESTADO_CAMBIADO.ToString(),
                 $"Estado cambió de {estadoAnterior} a {nuevoEstado}",
-                new { Anterior = estadoAnterior, Nuevo = nuevoEstado });
+                new { Anterior = estadoAnterior, Nuevo = estado });
         }
+
+
 
         // ====== REFUERZOS ======
         public int CalcularRefuerzos(Jugador j)
