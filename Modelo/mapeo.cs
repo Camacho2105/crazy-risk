@@ -84,6 +84,17 @@ namespace WinFormsApp1
             { "AS", "asia" },
             { "OC", "Oceania" }
         };
+        private static readonly Color[] _paleta = new[]
+        {
+            Color.FromArgb(52, 136, 245),   // Azul
+            Color.FromArgb(234, 85, 69),    // Rojo
+            Color.FromArgb(76, 175, 80),    // Verde
+            Color.FromArgb(255, 193, 7),    // Amarillo
+            Color.FromArgb(156, 39, 176),   // Púrpura
+            Color.FromArgb(255, 87, 34),    // Naranja
+            Color.FromArgb(0, 188, 212),    // Cian
+            Color.FromArgb(233, 30, 99)     // Rosa
+        };
 
         // Asignar continente según ID para la UI hexagonal
         private static string ObtenerCodigoContinente(int id)
@@ -133,100 +144,79 @@ namespace WinFormsApp1
             if (territorio == null) return null;
 
             int id = ObtenerIdTerritorio(territorio.Nombre);
-            if (id == -1)
-            {
-                id = Math.Abs(territorio.Nombre.GetHashCode()) % 42 + 1;
-            }
+            if (id == -1) id = Math.Abs(territorio.Nombre.GetHashCode()) % 42 + 1;
 
-            int ownerId = ObtenerIdJugador(territorio.Dueno); // ✅ Usar método auxiliar
+            int ownerId = 0; // neutral por defecto
+            if (territorio.Dueno != null && _aliasToId.TryGetValue(territorio.Dueno.Alias, out var pid))
+                ownerId = pid;
 
             string codigoContinente = ObtenerCodigoContinente(id);
 
-            return new TerritoryView(
-                id,
-                territorio.Nombre,
-                codigoContinente,
-                ownerId,
-                territorio.Tropas
-            );
+            return new TerritoryView(id, territorio.Nombre, codigoContinente, ownerId, territorio.Tropas);
         }
-
+        private static Dictionary<string,int> _aliasToId = new(StringComparer.OrdinalIgnoreCase);
 
        // En MapeoTerritorios.ConvertirAPlayerView, modifica la generación de IDs:
-        public static PlayerView ConvertirAPlayerView(Jugador jugador)
+       public static PlayerView ConvertirAPlayerView(Jugador jugador)
         {
             if (jugador == null) return null;
 
             int id = ObtenerIdJugador(jugador);
 
-            Color color;
-            
-            if (id == 0)
-            {
-                color = Color.Gray; // Neutral
-            }
-            else
-            {
-                // Paleta de 8 colores distintos y visibles
-                Color[] paleta = new[]
-                {
-                    Color.FromArgb(52, 136, 245),   // Azul
-                    Color.FromArgb(234, 85, 69),    // Rojo
-                    Color.FromArgb(76, 175, 80),    // Verde
-                    Color.FromArgb(255, 193, 7),    // Amarillo
-                    Color.FromArgb(156, 39, 176),   // Púrpura
-                    Color.FromArgb(255, 87, 34),    // Naranja
-                    Color.FromArgb(0, 188, 212),    // Cian
-                    Color.FromArgb(233, 30, 99)     // Rosa
-                };
-                
-                color = paleta[(id - 1) % paleta.Length];
-            }
-
+            Color color = id == 0 ? Color.Gray : _paleta[(id - 1) % _paleta.Length];
             return new PlayerView(id, jugador.Alias, color, jugador.GetCantCartas());
         }
+
         //
         /// Convierte todos los territorios del mapa a TerritoryView para la UI
         ///
-        public static List<TerritoryView> ConvertirMapaATerritorios(Mapa mapa)
+       public static List<TerritoryView> ConvertirMapaATerritorios(Mapa mapa, Jugador[] jugadores)
         {
-            if (mapa == null) return new List<TerritoryView>();
+            var res = new List<TerritoryView>();
+            if (mapa == null) return res;
 
-            var territorios = mapa.GetTerritorios();
-            var territoryViews = new List<TerritoryView>();
-
-            foreach (var territorio in territorios)
+            foreach (var t in mapa.GetTerritorios())
             {
-                var view = ConvertirATerritoryView(territorio);
-                if (view != null)
+                int id = ObtenerIdTerritorio(t.Nombre);
+
+                // Buscar índice del jugador dueño dentro del arreglo de jugadores
+                int ownerId = 0; // Neutral por defecto
+                if (t.Dueno != null)
                 {
-                    territoryViews.Add(view);
+                    int idx = Array.FindIndex(jugadores, j => j.Alias == t.Dueno.Alias);
+                    ownerId = (idx >= 0) ? idx : 0;
                 }
+
+                res.Add(new TerritoryView(id, t.Nombre, t.Continente, ownerId, t.Tropas));
             }
 
-            return territoryViews;
+            return res;
         }
+
 
         //
         /// Convierte todos los jugadores a PlayerView para la UI
         ///
         public static List<PlayerView> ConvertirJugadoresAPlayerView(Jugador[] jugadores)
         {
-            if (jugadores == null) return new List<PlayerView>();
+            var res = new List<PlayerView>();
+            int id = 0;
 
-            var playerViews = new List<PlayerView>();
-
-            foreach (var jugador in jugadores)
+            foreach (var j in jugadores)
             {
-                var view = ConvertirAPlayerView(jugador);
-                if (view != null)
-                {
-                    playerViews.Add(view);
-                }
+                Color color;
+                if (j is EjercitoNeutral)
+                    color = Color.Gray;
+                else
+                    color = _paleta[id % _paleta.Length]; // 🎨 paleta local
+
+                res.Add(new PlayerView(id, j.Alias, color, j.GetCantCartas()));
+                id++;
             }
 
-            return playerViews;
+            return res;
         }
+
 
         //
         /// Obtiene el código de continente de la UI a partir del nombre completo de la lógica

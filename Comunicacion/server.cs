@@ -24,8 +24,46 @@ namespace CrazyRisk.Comunicacion
             // Suscribir eventos de la partida para avisar a clientes
             this.partida.OnEventoJuego += (evento) =>
             {
-                Difundir($"[{evento.Tipo}] {evento.Mensaje}");
+                switch (evento.Tipo)
+                {
+                    case nameof(TipoEvento.TROPAS_MOVIDAS):
+                        if (evento.Datos is EstadoTropas et)
+                            Difundir($"ACTUALIZAR_TERRITORIO:{et.TerritorioNombre},{et.JugadorNombre},{et.TropasNuevas}");
+                        break;
+
+                    case nameof(TipoEvento.COMBATE):
+                        if (evento.Datos is ResultadoCombate combate)
+                            Difundir($"COMBATE:{string.Join("-", combate.DadosAtacante)}|{string.Join("-", combate.DadosDefensor)}," +
+                                    $"{combate.AtacanteNombre},{combate.DefensorNombre},{combate.NombreTerritorio}," +
+                                    $"{combate.BajasAtacante},{combate.BajasDefensor},{combate.TerritorioConquistado}");
+                        break;
+
+                    case nameof(TipoEvento.CONQUISTA):
+                        dynamic datos = evento.Datos;
+                        Difundir($"CONQUISTA:{datos.Atacante},{datos.Defensor},{datos.Territorio},{datos.TropasMovidas}");
+                        break;
+
+                    case nameof(TipoEvento.CARTA_RECIBIDA):
+                        if (evento.Datos is InfoCarta carta)
+                            Difundir($"CARTA_RECIBIDA:{carta.JugadorNombre},{carta.TipoCarta},{carta.CartasActuales}");
+                        break;
+
+                    case nameof(TipoEvento.REFUERZOS_CALCULADOS):
+                        dynamic r = evento.Datos;
+                        Difundir($"ACTUALIZAR_REFUERZOS:{r.Jugador},{r.Refuerzos}");
+                        break;
+
+                    case nameof(TipoEvento.TURNO_CAMBIADO):
+                        Difundir($"CAMBIO_TURNO:{((Jugador)evento.Datos).Alias}");
+                        break;
+
+                    case nameof(TipoEvento.ESTADO_CAMBIADO):
+                        dynamic e = evento.Datos;
+                        Difundir($"FASE_ACTUAL:{e.Nuevo}");
+                        break;
+                }
             };
+
         }
 
         public void Iniciar()

@@ -690,17 +690,18 @@ namespace WinFormsApp1
         {
             var tv = _territories.FirstOrDefault(t => t.Id == territoryId);
             if (tv is null) return Color.Gainsboro;
-            
-            // Si no tiene dueño o es neutral
-            if (tv.OwnerId == 0) return Color.Gainsboro;
-            
-            // Buscar el color del jugador dueño
+
+            // Buscar jugador por OwnerId
             var player = _players.FirstOrDefault(p => p.Id == tv.OwnerId);
-            if (player != null) return player.Color;
-            
-            // Si no se encuentra el jugador, usar color neutral
-            return Color.Gainsboro;
+
+            // Si no hay jugador o no tiene color asignado, usa gris claro
+            if (player == null)
+                return Color.Gainsboro;
+
+            // Devuelve el color real del jugador (incluyendo Neutral gris)
+            return player.Color;
         }
+
 
         private static Color ContinentColor(string c) => c switch
         {

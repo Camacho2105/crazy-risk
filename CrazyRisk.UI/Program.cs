@@ -124,6 +124,9 @@ namespace WinFormsApp1
                     System.Threading.Thread.Sleep(500); // Esperar conexión
                     controller.SolicitarEstadoInicial();
 
+                    game.SetPhase(Phase.Reinforcements);
+
+
                     start.Hide();
                     game.Show();
                     
